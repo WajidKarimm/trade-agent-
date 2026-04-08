@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     anthropic_api_key: str = Field(default="", description="Anthropic API key")
     anthropic_model: str = Field("claude-sonnet-4-20250514")
 
+    # ── Google AI ────────────────────────────────────────
+    google_ai_api_key: str = Field(default="", description="Google AI Studio API key")
+    google_ai_model: str = Field("gemini-1.5-pro")
+
     # ── Polymarket ───────────────────────────────────────
     poly_private_key: str = Field(default="", description="Polygon wallet private key")
     poly_api_key: str = Field(default="")
