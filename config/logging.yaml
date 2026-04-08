@@ -1,0 +1,23 @@
+version: 1
+disable_existing_loggers: false
+formatters:
+  rich:
+    format: "%(message)s"
+  file:
+    format: "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+    datefmt: "%Y-%m-%d %H:%M:%S"
+handlers:
+  console:
+    class: rich.logging.RichHandler
+    formatter: rich
+    show_time: true
+    show_path: true
+  file:
+    class: logging.handlers.RotatingFileHandler
+    filename: ./storage/agent.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 5
+    formatter: file
+root:
+  level: INFO
+  handlers: [console, file]

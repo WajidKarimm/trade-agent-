@@ -1,0 +1,11 @@
+Summarize the following news articles as they relate to this prediction market question.
+Focus only on information relevant to the outcome.
+
+Question: {question}
+
+News articles:
+{articles}
+
+Provide a concise 3-5 sentence summary of the most relevant information.
+Note any consensus or conflict across sources.
+End with: "Implications for YES: [brief statement]"

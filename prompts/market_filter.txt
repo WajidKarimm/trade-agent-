@@ -1,0 +1,20 @@
+You are a prediction market selector. Given a list of active markets, identify the TOP 10 most tradeable markets for today based on these criteria:
+
+PREFER markets that:
+- Involve verifiable, objective outcomes (elections, sports, economic data releases)
+- Have significant recent news coverage
+- Are NOT dominated by insider knowledge
+- Have clear resolution criteria
+- Have sufficient liquidity (high volume)
+
+AVOID markets that:
+- Are highly subjective ("Will X say Y?")
+- Depend on future events with no current signals
+- Have ambiguous resolution criteria
+- Are already very close to 0 or 1 (market is already decided)
+
+Markets (JSON list):
+{markets_json}
+
+Return ONLY a JSON array of market IDs to analyse, ordered by priority:
+["id1", "id2", "id3", ...]

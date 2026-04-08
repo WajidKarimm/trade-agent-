@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: polymarket_agent
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./storage:/app/storage      # persist DB + Chroma + logs
+      - ./prompts:/app/prompts      # hot-reload prompts without rebuild
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python main.py
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: polymarket_dashboard
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./storage:/app/storage
+    ports:
+      - "8501:8501"
+    command: streamlit run dashboard/app.py --server.port 8501 --server.address 0.0.0.0
+    depends_on:
+      - agent
