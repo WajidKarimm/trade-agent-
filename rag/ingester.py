@@ -18,6 +18,11 @@ def _make_id(text: str) -> str:
     return hashlib.md5(text.encode()).hexdigest()
 
 
+def _make_url_id(url: str) -> str:
+    """Stable deterministic ID based on URL to prevent duplicates."""
+    return hashlib.sha1(url.encode()).hexdigest()
+
+
 async def ingest_news() -> int:
     """Fetch latest news and store in Chroma."""
     logger.info("Ingesting news into RAG...")
@@ -36,7 +41,7 @@ async def ingest_news() -> int:
         text = f"{item.title}. {item.summary}".strip()
         if len(text) < 20:
             continue
-        doc_id = _make_id(text)
+        doc_id = _make_url_id(item.url)
         ids.append(doc_id)
         texts.append(text)
         metadatas.append({
