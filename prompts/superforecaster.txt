@@ -33,11 +33,11 @@ Days remaining: {days_to_resolve:.1f}
 4. Note what would change your estimate significantly
 
 ## Response format (JSON only, no other text):
-{
+{{
   "probability_yes": 0.XX,
   "confidence": 0.XX,
   "key_factors": ["factor 1", "factor 2", "factor 3"],
   "bull_case": "what would push probability higher",
   "bear_case": "what would push probability lower",
   "reasoning": "2-3 sentence explanation of your estimate"
-}
+}}

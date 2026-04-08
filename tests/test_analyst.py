@@ -1,6 +1,8 @@
 """Tests for the analyst agent (mocked Claude responses)."""
+import os
 import pytest
 import json
+import asyncio
 from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock, AsyncMock
 
@@ -31,21 +33,21 @@ MOCK_CLAUDE_RESPONSE = json.dumps({
 })
 
 
-@pytest.mark.asyncio
-async def test_analyst_returns_signal():
+def test_analyst_returns_signal():
     """Analyst should return a valid signal for a healthy market."""
-    with patch("anthropic.Anthropic") as mock_anthropic:
-        mock_client = MagicMock()
-        mock_anthropic.return_value = mock_client
-        mock_message = MagicMock()
-        mock_message.content = [MagicMock(text=MOCK_CLAUDE_RESPONSE)]
-        mock_client.messages.create.return_value = mock_message
+    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
+        with patch("anthropic.Anthropic") as mock_anthropic:
+            mock_client = MagicMock()
+            mock_anthropic.return_value = mock_client
+            mock_message = MagicMock()
+            mock_message.content = [MagicMock(text=MOCK_CLAUDE_RESPONSE)]
+            mock_client.messages.create.return_value = mock_message
 
-        with patch("agents.analyst.fetch_market_news", new_callable=AsyncMock, return_value=[]):
-            from agents.analyst import AnalystAgent
-            agent = AnalystAgent()
-            market = make_market()
-            signal = await agent.analyse_market(market, news_items=[])
+            with patch("agents.analyst.fetch_market_news", new_callable=AsyncMock, return_value=[]):
+                from agents.analyst import AnalystAgent
+                agent = AnalystAgent()
+                market = make_market()
+                signal = asyncio.run(agent.analyse_market(market, news_items=[]))
 
     assert signal is not None
     assert signal.my_prob_yes == pytest.approx(0.62)
@@ -54,8 +56,7 @@ async def test_analyst_returns_signal():
     assert signal.side == Side.YES
 
 
-@pytest.mark.asyncio
-async def test_analyst_detects_no_side():
+def test_analyst_detects_no_side():
     """When our prob is lower than market, analyst should flag NO side."""
     low_prob_response = json.dumps({
         "probability_yes": 0.25,
@@ -66,18 +67,19 @@ async def test_analyst_detects_no_side():
         "reasoning": "Market overestimates probability."
     })
 
-    with patch("anthropic.Anthropic") as mock_anthropic:
-        mock_client = MagicMock()
-        mock_anthropic.return_value = mock_client
-        mock_message = MagicMock()
-        mock_message.content = [MagicMock(text=low_prob_response)]
-        mock_client.messages.create.return_value = mock_message
+    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
+        with patch("anthropic.Anthropic") as mock_anthropic:
+            mock_client = MagicMock()
+            mock_anthropic.return_value = mock_client
+            mock_message = MagicMock()
+            mock_message.content = [MagicMock(text=low_prob_response)]
+            mock_client.messages.create.return_value = mock_message
 
-        with patch("agents.analyst.fetch_market_news", new_callable=AsyncMock, return_value=[]):
-            from agents.analyst import AnalystAgent
-            agent = AnalystAgent()
-            market = make_market()
-            signal = await agent.analyse_market(market, news_items=[])
+            with patch("agents.analyst.fetch_market_news", new_callable=AsyncMock, return_value=[]):
+                from agents.analyst import AnalystAgent
+                agent = AnalystAgent()
+                market = make_market()
+                signal = asyncio.run(agent.analyse_market(market, news_items=[]))
 
     assert signal is not None
     assert signal.side == Side.NO

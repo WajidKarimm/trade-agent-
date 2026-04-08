@@ -22,7 +22,16 @@ class OrchestratorAgent:
     def __init__(self, bankroll_usd: float = 100.0):
         self.settings = get_settings()
         self.bankroll_usd = bankroll_usd
-        self.analyst = AnalystAgent()
+
+        # Analyst is optional - only initialize if API key is available
+        self.analyst = None
+        try:
+            self.analyst = AnalystAgent()
+            logger.info("Analyst agent initialized - full analysis available")
+        except ValueError as e:
+            logger.warning(f"Analyst agent unavailable: {e}")
+            logger.info("Running in arbitrage-only mode (no directional trading)")
+
         self.risk_manager = RiskManagerAgent(bankroll_usd=bankroll_usd)
         self.executor = ExecutorAgent()
         self.monitor = MonitorAgent(bankroll_usd=bankroll_usd)
@@ -107,32 +116,40 @@ class OrchestratorAgent:
             summary["errors"].append(f"arb_scan: {e}")
 
         # ── 4. Filter markets for analyst ────────────────────
-        try:
-            selected_markets = await self.analyst.filter_markets(markets)
-        except Exception as e:
-            logger.warning(f"Market filter failed, using top 15: {e}")
-            selected_markets = markets[:15]
+        if self.analyst:
+            try:
+                selected_markets = await self.analyst.filter_markets(markets)
+            except Exception as e:
+                logger.warning(f"Market filter failed, using top 15: {e}")
+                selected_markets = markets[:15]
+        else:
+            # No analyst available - skip directional trading
+            selected_markets = []
+            logger.info("Skipping market analysis (no analyst available)")
 
         # ── 5 & 6. Analyse + risk check each market ──────────
         signals = []
-        for market in selected_markets:
-            try:
-                signal = await self.analyst.analyse_market(market)
-                if signal is None:
-                    continue
-                summary["signals_generated"] += 1
+        if self.analyst and selected_markets:
+            for market in selected_markets:
+                try:
+                    signal = await self.analyst.analyse_market(market)
+                    if signal is None:
+                        continue
+                    summary["signals_generated"] += 1
 
-                decision = self.risk_manager.evaluate_signal(signal, market)
-                if decision.approved:
-                    signals.append((decision, market))
-                    summary["trades_approved"] += 1
+                    decision = self.risk_manager.evaluate_signal(signal, market)
+                    if decision.approved:
+                        signals.append((decision, market))
+                        summary["trades_approved"] += 1
 
-                # Small delay between API calls to be respectful
-                await asyncio.sleep(1.5)
+                    # Small delay between API calls to be respectful
+                    await asyncio.sleep(1.5)
 
-            except Exception as e:
-                logger.error(f"Analysis failed for {market.market_id}: {e}")
-                summary["errors"].append(f"analysis:{market.market_id}: {e}")
+                except Exception as e:
+                    logger.error(f"Analysis failed for {market.market_id}: {e}")
+                    summary["errors"].append(f"analysis:{market.market_id}: {e}")
+        else:
+            logger.info("No analyst available - skipping signal generation")
 
         # ── 7. Execute approved trades ───────────────────────
         for decision, market in signals:

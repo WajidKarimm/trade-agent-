@@ -39,6 +39,11 @@ def _format_rag_context(rag_results: list[str]) -> str:
 class AnalystAgent:
     def __init__(self):
         self.settings = get_settings()
+        if not self.settings.anthropic_api_key:
+            raise ValueError(
+                "Anthropic API key is required to use the AnalystAgent. "
+                "Set ANTHROPIC_API_KEY in your environment or .env file."
+            )
         self.client = anthropic.Anthropic(api_key=self.settings.anthropic_api_key)
         self.prompt_template = _load_prompt("superforecaster.txt")
         self._rag_retriever = None

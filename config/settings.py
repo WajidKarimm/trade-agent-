@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     )
 
     # ── Anthropic ────────────────────────────────────────
-    anthropic_api_key: str = Field(..., description="Anthropic API key")
+    anthropic_api_key: str = Field(default="", description="Anthropic API key")
     anthropic_model: str = Field("claude-sonnet-4-20250514")
 
     # ── Polymarket ───────────────────────────────────────
