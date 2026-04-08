@@ -33,44 +33,47 @@ async def fetch_gdelt_news(query: str, days_back: int = 3) -> list[NewsItem]:
         "sort": "DateDesc",
     }
 
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                GDELT_API, params=params, timeout=aiohttp.ClientTimeout(total=20)
-            ) as resp:
-                if resp.status != 200:
-                    logger.warning(f"GDELT returned {resp.status}")
-                    return []
-                data = await resp.json(content_type=None)
+    for attempt in range(3):
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    GDELT_API, params=params, timeout=aiohttp.ClientTimeout(total=20)
+                ) as resp:
+                    if resp.status != 200:
+                        logger.warning(f"GDELT returned {resp.status}")
+                        return []
+                    data = await resp.json(content_type=None)
 
-        articles = data.get("articles", [])
-        items = []
-        for a in articles:
-            title = a.get("title", "")
-            url = a.get("url", "")
-            source = a.get("domain", "gdelt")
-            try:
-                published = datetime.strptime(
-                    a.get("seendate", "")[:14], "%Y%m%dT%H%M%S"
-                )
-            except Exception:
-                published = datetime.utcnow()
+            articles = data.get("articles", [])
+            items = []
+            for a in articles:
+                title = a.get("title", "")
+                url = a.get("url", "")
+                source = a.get("domain", "gdelt")
+                try:
+                    published = datetime.strptime(
+                        a.get("seendate", "")[:14], "%Y%m%dT%H%M%S"
+                    )
+                except Exception:
+                    published = datetime.utcnow()
 
-            items.append(NewsItem(
-                source=source,
-                title=title,
-                summary=title,  # GDELT doesn't return full text
-                url=url,
-                published=published,
-                keywords=_extract_keywords(title),
-            ))
+                items.append(NewsItem(
+                    source=source,
+                    title=title,
+                    summary=title,  # GDELT doesn't return full text
+                    url=url,
+                    published=published,
+                    keywords=_extract_keywords(title),
+                ))
 
-        logger.info(f"GDELT '{query}': {len(items)} articles")
-        return items
+            logger.info(f"GDELT '{query}': {len(items)} articles")
+            return items
 
-    except Exception as e:
-        logger.warning(f"GDELT fetch failed for '{query}': {e}")
-        return []
+        except Exception as e:
+            if attempt == 2:  # Last attempt
+                logger.warning(f"GDELT fetch failed for '{query}' after 3 attempts: {e}")
+                return []
+            await asyncio.sleep(2 ** attempt)
 
 
 async def fetch_market_news(question: str) -> list[NewsItem]:
