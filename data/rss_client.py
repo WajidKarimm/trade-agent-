@@ -15,6 +15,7 @@ from loguru import logger
 RSS_FEEDS = {
     "bbc_world":    "http://feeds.bbci.co.uk/news/world/rss.xml",
     "bbc_politics": "http://feeds.bbci.co.uk/news/politics/rss.xml",
+    "nyt_world":    "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
     "reuters_world":"https://feeds.reuters.com/reuters/worldNews",
     "reuters_biz":  "https://feeds.reuters.com/reuters/businessNews",
     "ap_top":       "https://feeds.apnews.com/rss/apf-topnews",
@@ -42,33 +43,36 @@ def _extract_keywords(text: str) -> list[str]:
 
 async def fetch_feed(source: str, url: str) -> list[NewsItem]:
     """Fetch and parse a single RSS feed asynchronously."""
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
-                content = await resp.text()
+    for attempt in range(3):
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                    content = await resp.text()
 
-        feed = feedparser.parse(content)
-        items = []
-        for entry in feed.entries[:20]:  # latest 20 per feed
-            try:
-                published = datetime(*entry.published_parsed[:6]) if hasattr(entry, "published_parsed") and entry.published_parsed else datetime.utcnow()
-                title = entry.get("title", "")
-                summary = entry.get("summary", entry.get("description", ""))[:500]
-                items.append(NewsItem(
-                    source=source,
-                    title=title,
-                    summary=summary,
-                    url=entry.get("link", ""),
-                    published=published,
-                    keywords=_extract_keywords(f"{title} {summary}"),
-                ))
-            except Exception:
-                continue
-        logger.debug(f"RSS {source}: {len(items)} items")
-        return items
-    except Exception as e:
-        logger.warning(f"RSS feed failed [{source}]: {e}")
-        return []
+            feed = feedparser.parse(content)
+            items = []
+            for entry in feed.entries[:20]:  # latest 20 per feed
+                try:
+                    published = datetime(*entry.published_parsed[:6]) if hasattr(entry, "published_parsed") and entry.published_parsed else datetime.utcnow()
+                    title = entry.get("title", "")
+                    summary = entry.get("summary", entry.get("description", ""))[:500]
+                    items.append(NewsItem(
+                        source=source,
+                        title=title,
+                        summary=summary,
+                        url=entry.get("link", ""),
+                        published=published,
+                        keywords=_extract_keywords(f"{title} {summary}"),
+                    ))
+                except Exception:
+                    continue
+            logger.debug(f"RSS {source}: {len(items)} items")
+            return items
+        except Exception as e:
+            if attempt == 2:  # Last attempt
+                logger.warning(f"RSS feed failed [{source}] after 3 attempts: {e}")
+                return []
+            await asyncio.sleep(2 ** attempt)
 
 
 async def fetch_all_news() -> list[NewsItem]:
