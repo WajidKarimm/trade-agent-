@@ -1,6 +1,6 @@
 """
-Analyst Agent — the Claude-powered superforecaster.
-This is the ONLY place in the codebase that calls the Anthropic API.
+Analyst Agent — the AI-powered superforecaster.
+Supports both Anthropic Claude and Google Gemini models.
 Uses RAG context + news to form calibrated probability estimates.
 """
 import json
@@ -39,12 +39,37 @@ def _format_rag_context(rag_results: list[str]) -> str:
 class AnalystAgent:
     def __init__(self):
         self.settings = get_settings()
-        if not self.settings.anthropic_api_key:
+        
+        # Try Anthropic first, then Google AI
+        self.provider = None
+        self.client = None
+        
+        if self.settings.anthropic_api_key:
+            try:
+                self.client = anthropic.Anthropic(api_key=self.settings.anthropic_api_key)
+                self.provider = "anthropic"
+                self.model = self.settings.anthropic_model
+                logger.info("Using Anthropic Claude for analysis")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Anthropic: {e}")
+        
+        if self.client is None and self.settings.google_ai_api_key:
+            try:
+                import google.generativeai as genai
+                genai.configure(api_key=self.settings.google_ai_api_key)
+                self.client = genai.GenerativeModel(self.settings.google_ai_model)
+                self.provider = "google"
+                self.model = self.settings.google_ai_model
+                logger.info("Using Google Gemini for analysis")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Google AI: {e}")
+        
+        if self.client is None:
             raise ValueError(
-                "Anthropic API key is required to use the AnalystAgent. "
-                "Set ANTHROPIC_API_KEY in your environment or .env file."
+                "No AI provider available. Please set either ANTHROPIC_API_KEY or GOOGLE_AI_API_KEY "
+                "in your environment or .env file."
             )
-        self.client = anthropic.Anthropic(api_key=self.settings.anthropic_api_key)
+        
         self.prompt_template = _load_prompt("superforecaster.txt")
         self._rag_retriever = None
 
@@ -97,14 +122,19 @@ class AnalystAgent:
 
         logger.info(f"Analyst → {market.question[:60]}...")
 
-        # Call Claude
-        message = self.client.messages.create(
-            model=self.settings.anthropic_model,
-            max_tokens=1024,
-            messages=[{"role": "user", "content": prompt}],
-        )
-
-        raw = message.content[0].text.strip()
+        # Call AI provider
+        if self.provider == "anthropic":
+            message = self.client.messages.create(
+                model=self.model,
+                max_tokens=1024,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            raw = message.content[0].text.strip()
+        elif self.provider == "google":
+            response = self.client.generate_content(prompt)
+            raw = response.text.strip()
+        else:
+            raise ValueError(f"Unknown AI provider: {self.provider}")
 
         # Parse JSON response
         try:
@@ -164,12 +194,19 @@ class AnalystAgent:
         prompt = filter_prompt.format(markets_json=_json.dumps(markets_data, indent=2))
 
         try:
-            message = self.client.messages.create(
-                model=self.settings.anthropic_model,
-                max_tokens=256,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            raw = message.content[0].text.strip()
+            if self.provider == "anthropic":
+                message = self.client.messages.create(
+                    model=self.model,
+                    max_tokens=256,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                raw = message.content[0].text.strip()
+            elif self.provider == "google":
+                response = self.client.generate_content(prompt)
+                raw = response.text.strip()
+            else:
+                raise ValueError(f"Unknown AI provider: {self.provider}")
+            
             if raw.startswith("```"):
                 raw = raw.split("```")[1].lstrip("json").strip()
             selected_ids = set(_json.loads(raw))
