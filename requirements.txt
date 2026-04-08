@@ -1,6 +1,9 @@
 # Anthropic
 anthropic>=0.40.0
 
+# Google AI
+google-generativeai>=0.8.0
+
 # Async HTTP
 aiohttp>=3.9.0
 httpx>=0.27.0
