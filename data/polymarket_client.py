@@ -55,6 +55,11 @@ class PolymarketClient:
         markets = []
         for m in data:
             try:
+                # Debug: print market structure
+                import json
+                print(f"DEBUG: Market {m.get('id')}:")
+                print(json.dumps(m, indent=2)[:1000])  # First 1000 chars to avoid spam
+
                 resolve_by = datetime.fromisoformat(
                     m.get("endDate", "").replace("Z", "+00:00")
                 ).replace(tzinfo=None)
